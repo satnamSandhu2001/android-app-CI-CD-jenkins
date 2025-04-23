@@ -1,0 +1,41 @@
+pipeline {
+    agent any
+    stages {
+        stage('Git Repo') {
+            steps {
+                git credentialsId: 'git-ssh-token', url: 'git@bitbucket.org:sandhu2001space/school-mobile-app.git'
+            }
+        }
+        stage('Prepare Files') {
+            steps {
+                echo 'Copying certificate and keystore.properties...'
+                sh '''
+                cp /home/jenkins/nexschool.keystore android/app/
+                cp /home/jenkins/keystore.properties android/
+                '''
+            }
+        }
+        stage('Install Dependencies') {
+            steps {
+                sh 'npm ci'
+                sh 'npx react-native codegen'
+            }
+        }
+        stage('Build APK') {
+            steps {
+                sh '''
+                cd android
+                chmod +x gradlew
+                ./gradlew clean
+                ./gradlew assembleRelease
+                '''
+            }
+        }
+    }
+    post {
+        success {
+            echo 'Build completed successfully. Archiving APK...'
+            archiveArtifacts artifacts: 'android/app/build/outputs/apk/release/*.apk', fingerprint: true
+        }
+    }
+}
